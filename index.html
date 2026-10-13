@@ -191,6 +191,7 @@ function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(
 
 let view = 'home';   // home | shop
 let editing = false;
+let doneOpen = false; // 「カゴに入れた物」を開いたままにする
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -262,7 +263,7 @@ function shopHTML(){
       </section>`).join('');
   }
   if (done.length) {
-    h += `<details class="done-list"><summary>カゴに入れた物（${done.length}）</summary>${done.map(i => `
+    h += `<details class="done-list"${doneOpen ? ' open' : ''}><summary>カゴに入れた物（${done.length}）</summary>${done.map(i => `
       <div class="done-row"><span>${esc(i.name)}</span><button type="button" class="linkbtn" data-act="unbuy" data-id="${i.id}">戻す</button></div>`).join('')}</details>`;
   }
   return h;
@@ -366,6 +367,9 @@ $('main').addEventListener('click', e => {
     return;
   }
 });
+$('main').addEventListener('toggle', e => {
+  if (e.target.classList && e.target.classList.contains('done-list')) doneOpen = e.target.open;
+}, true);
 $('main').addEventListener('change', e => {
   const s = e.target; if (s.dataset.act !== 'move') return;
   const [from, it] = findItem(s.dataset.id); const to = data.genres.find(x => x.id === s.value);
