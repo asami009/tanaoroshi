@@ -51,7 +51,7 @@
   .item.need .box::after{content:"";width:12px;height:3px;background:#fff;border-radius:2px}
   .item.need .tag{display:inline}
 
-  /* カインズ画面 */
+  /* 買い物リスト画面 */
   .shop .item .box{border-color:var(--green)}
   .shop .item.gone{opacity:0;transform:translateX(40px);transition:opacity .25s,transform .25s}
   .empty{text-align:center;padding:48px 16px;color:var(--sub)}
@@ -125,7 +125,7 @@
 
 <nav>
   <button type="button" id="tabHome" class="cur">家で棚卸</button>
-  <button type="button" id="tabShop">カインズで<span class="badge" id="badge" hidden>0</span></button>
+  <button type="button" id="tabShop">買い物リスト<span class="badge" id="badge" hidden>0</span></button>
 </nav>
 
 <div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastUndo">取り消し</button></div>
@@ -185,7 +185,7 @@ function render(){
     $('main').className = '';
     $('main').innerHTML = editing ? editHTML() : homeHTML();
   } else {
-    $('title').textContent = 'カインズで';
+    $('title').textContent = '買い物リスト';
     $('hint').textContent = 'カゴに入れたらタップ → 消える';
     $('main').className = 'shop';
     $('main').innerHTML = shopHTML();
@@ -202,7 +202,7 @@ function homeHTML(){
         </button>`).join('') || '<p class="hint">まだ品目がないよ。「品目を編集」から足してね</p>'}
       </div>
     </section>`).join('');
-  h += `<button type="button" class="reset" data-act="reset">棚卸を始める（毎月20日）<small>赤とカインズのリストを全部まっさらにする</small></button>`;
+  h += `<button type="button" class="reset" data-act="reset">棚卸を始める（毎月20日）<small>赤と買い物リストを全部まっさらにする</small></button>`;
   return h;
 }
 
@@ -288,7 +288,7 @@ $('main').addEventListener('click', e => {
   }
   if (act === 'unbuy') { const [, it] = findItem(id); it.bought = false; save(); render(); return; }
   if (act === 'reset') {
-    if (!confirm('今月の棚卸を始める？\n赤くした物とカインズのリストが全部まっさらになるよ（品目は消えない）')) return;
+    if (!confirm('今月の棚卸を始める？\n赤くした物と買い物リストが全部まっさらになるよ（品目は消えない）')) return;
     const snap = JSON.stringify(data);
     data.genres.forEach(g => g.items.forEach(i => { i.need = false; i.bought = false; }));
     save(); render(); window.scrollTo(0, 0);
