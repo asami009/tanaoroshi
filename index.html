@@ -65,6 +65,22 @@
   /* 編集モード */
   .erow{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px}
   .erow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ncol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+  .ncol .ren{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prbtn{font-size:13px;color:var(--sub);padding:7px 0;text-decoration:underline dotted #b9b1a5;text-underline-offset:3px}
+  .prbtn::after{content:" ✎";font-size:12px}
+  .srow{display:flex;gap:8px;min-width:0}
+  .srow .item{flex:1;min-width:0}
+  .spr{flex:none;min-width:84px;padding:0 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-size:14px;color:var(--ink)}
+  .spr small{display:block;font-size:11px;color:var(--sub)}
+  .spr:active{transform:translateY(2px);box-shadow:none}
+  .shop .srow.gone{opacity:0;transform:translateX(40px);transition:opacity .25s,transform .25s}
+  .total{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px}
+  .total div{background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:10px 12px}
+  .total div:first-child{background:var(--green-bg);border-color:var(--green)}
+  .total span{display:block;font-size:12px;color:var(--sub);font-weight:700}
+  .total b{font-size:22px}
+  .total p{grid-column:1/-1;margin:0;font-size:12px;color:var(--sub)}
   .erow .ren{text-align:left;padding:6px 0;text-decoration:underline dotted #b9b1a5;text-underline-offset:4px}
   .erow .ren::after{content:" ✎";color:var(--sub);font-size:13px}
   .erow select{flex:none;width:104px;padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:#fff}
@@ -142,11 +158,16 @@ const DEFAULT = [
   ['掃除', ['消臭剤','お風呂用洗剤','カビ取り剤','メラミンスポンジ']],
   ['その他', ['ティッシュ']],
 ];
+/* 値段の目安（2026-10-13 調べ。ネット最安くらい・トイペはカインズの実際の値段）。使い始めたスマホにも1回だけ入れる */
+const PRICE = { 'トイレットペーパー':1480,'トイレ用洗剤':360,'トイレ用おそうじシート':328,'ブルーレット':399,'ナプキン':1840,
+  'シャンプー':880,'コンディショナー':988,'ボディソープ':1260,'歯ブラシ':944,'歯磨き粉':500,'お風呂の防カビ剤':600,
+  '洗濯洗剤':2499,'柔軟剤':700,'食器用洗剤':630,'スポンジ':402,'ゴミ袋':600,'キッチンペーパー':420,'キッチンハイター':564,
+  'ラップ':196,'ジップ袋':243,'アルミホイル':173,'消臭剤':650,'お風呂用洗剤':858,'カビ取り剤':300,'ティッシュ':398 };
 let seq = Date.now();
 const uid = () => (seq++).toString(36);
 
 function fresh(){
-  return { genres: DEFAULT.map(([name, items]) => ({ id: uid(), name, items: items.map(n => ({ id: uid(), name: n, need: false, bought: false })) })) };
+  return { priceV1: true, genres: DEFAULT.map(([name, items]) => ({ id: uid(), name, items: items.map(n => ({ id: uid(), name: n, need: false, bought: false, price: PRICE[n] ?? null })) })) };
 }
 function load(){
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.genres) && s.genres.every(g => g && typeof g.name === 'string' && Array.isArray(g.items) && g.items.every(i => i && typeof i.name === 'string'))) return s; } catch(e){}
@@ -158,9 +179,13 @@ const SPLIT = { 'ラップ・ジップ袋・アルミホイル': ['ラップ','�
 data.genres.forEach(g => {
   for (let k = g.items.length - 1; k >= 0; k--) {
     const it = g.items[k], parts = SPLIT[it.name];
-    if (parts) g.items.splice(k, 1, ...parts.map(n => ({ id: uid(), name: n, need: it.need, bought: it.bought })));
+    if (parts) g.items.splice(k, 1, ...parts.map(n => ({ id: uid(), name: n, need: it.need, bought: it.bought, price: it.price ?? PRICE[n] ?? null })));
   }
 });
+if (!data.priceV1) {
+  data.genres.forEach(g => g.items.forEach(i => { if (i.price == null && PRICE[i.name] != null) i.price = PRICE[i.name]; }));
+  data.priceV1 = true;
+}
 save();
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){} }
 
@@ -170,6 +195,7 @@ let editing = false;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const findItem = id => { for (const g of data.genres) { const it = g.items.find(i => i.id === id); if (it) return [g, it]; } return [null, null]; };
+const yen = n => '約' + (Math.round(n / 10) * 10).toLocaleString('ja-JP') + '円';
 const needCount = () => data.genres.reduce((n, g) => n + g.items.filter(i => i.need && !i.bought).length, 0);
 
 function render(){
@@ -183,12 +209,12 @@ function render(){
 
   if (view === 'home') {
     $('title').textContent = editing ? '品目を編集' : '家で棚卸';
-    $('hint').textContent = editing ? '名前をタップで変える・× で消す・右の欄でジャンルを移す' : '足りない物をタップ → 赤くなる（もう一回で戻る）';
+    $('hint').textContent = editing ? '名前・値段をタップで変える・× で消す・右の欄でジャンルを移す' : '足りない物をタップ → 赤くなる（もう一回で戻る）';
     $('main').className = '';
     $('main').innerHTML = editing ? editHTML() : homeHTML();
   } else {
     $('title').textContent = '買い物リスト';
-    $('hint').textContent = 'カゴに入れたらタップ → 消える';
+    $('hint').textContent = 'カゴに入れたら品目をタップ → 消える';
     $('main').className = 'shop';
     $('main').innerHTML = shopHTML();
   }
@@ -212,19 +238,26 @@ function shopHTML(){
   const groups = data.genres.map(g => ({ g, list: g.items.filter(i => i.need && !i.bought) })).filter(x => x.list.length);
   const done = [];
   data.genres.forEach(g => g.items.forEach(i => { if (i.need && i.bought) done.push(i); }));
-  let h = '';
+  const all = data.genres.flatMap(g => g.items.filter(i => i.need));
+  const sum = list => list.reduce((n, i) => n + (i.price || 0), 0);
+  const left = all.filter(i => !i.bought), noPrice = all.filter(i => i.price == null).length;
+  let h = all.length ? `<div class="total">
+      <div><span>残り</span><b>${yen(sum(left))}</b></div>
+      <div><span>合計</span><b>${yen(sum(all))}</b></div>
+      <p>値段はネット最安くらいの目安（トイペはカインズの値段）。右の値段をタップで直せる${noPrice ? `・値段なし${noPrice}個は入ってない` : ''}</p>
+    </div>` : '';
   if (!groups.length) {
-    h = done.length
+    h += done.length
       ? `<div class="empty"><b>ぜんぶカゴに入った！</b>おつかれさま〜</div>`
       : `<div class="empty"><b>買う物はないよ</b>「家で棚卸」で足りない物をタップすると、ここに出てくる</div>`;
   } else {
-    h = groups.map(({ g, list }) => `
+    h += groups.map(({ g, list }) => `
       <section class="genre">
         <div class="ghead"><h2>${esc(g.name)}</h2></div>
         <div class="items">${list.map(i => `
-          <button type="button" class="item" data-act="buy" data-id="${i.id}">
+          <div class="srow"><button type="button" class="item" data-act="buy" data-id="${i.id}">
             <span class="box"></span><span class="nm">${esc(i.name)}</span>
-          </button>`).join('')}
+          </button><button type="button" class="spr" data-act="priceI" data-id="${i.id}">${i.price != null ? i.price.toLocaleString('ja-JP') + '円' : '値段'}<small>✎</small></button></div>`).join('')}
         </div>
       </section>`).join('');
   }
@@ -246,7 +279,8 @@ function editHTML(){
       </div>
       <div class="items">${g.items.map(i => `
         <div class="erow">
-          <button type="button" class="nm ren" data-act="renameI" data-id="${i.id}">${esc(i.name)}</button>
+          <div class="ncol"><button type="button" class="ren" data-act="renameI" data-id="${i.id}">${esc(i.name)}</button>
+          <button type="button" class="prbtn" data-act="priceI" data-id="${i.id}">${i.price != null ? i.price.toLocaleString('ja-JP') + '円' : '値段なし'}</button></div>
           <select data-act="move" data-id="${i.id}" aria-label="ジャンルを移す">${opts(g.id)}</select>
           <button type="button" class="xbtn" data-act="delI" data-id="${i.id}" aria-label="${esc(i.name)}を消す">×</button>
         </div>`).join('')}
@@ -283,7 +317,7 @@ $('main').addEventListener('click', e => {
   }
   if (act === 'buy') {
     const [, it] = findItem(id); it.bought = true; save();
-    b.classList.add('gone');
+    (b.closest('.srow') || b).classList.add('gone');
     setTimeout(render, 230);
     toast(`「${it.name}」をカゴへ`, () => { it.bought = false; });
     return;
@@ -301,6 +335,16 @@ $('main').addEventListener('click', e => {
     const [g, it] = findItem(id); const idx = g.items.indexOf(it);
     g.items.splice(idx, 1); save(); render();
     toast(`「${it.name}」を消した`, () => { g.items.splice(idx, 0, it); });
+    return;
+  }
+  if (act === 'priceI') {
+    const [, it] = findItem(id);
+    const v = prompt(`「${it.name}」の値段（円）\n空にすると値段なしになるよ`, it.price ?? '');
+    if (v === null) return;
+    const t = String(v).normalize('NFKC').replace(/[,，円\s]/g, '');
+    if (t === '' || t === '0') { it.price = null; save(); render(); return; }
+    if (!/^\d+$/.test(t)) { alert('数字だけで入れてね（例：1480）'); return; }
+    it.price = parseInt(t, 10); save(); render();
     return;
   }
   if (act === 'renameI') {
@@ -333,7 +377,7 @@ $('main').addEventListener('submit', e => {
   e.preventDefault();
   const f = e.target, inp = f.querySelector('input'), nm = inp.value.trim(); if (!nm) return;
   if (f.dataset.act === 'addI') {
-    data.genres.find(x => x.id === f.dataset.id).items.push({ id: uid(), name: nm, need: false, bought: false });
+    data.genres.find(x => x.id === f.dataset.id).items.push({ id: uid(), name: nm, need: false, bought: false, price: null });
   } else if (f.dataset.act === 'addG') {
     data.genres.push({ id: uid(), name: nm, items: [] });
   }
