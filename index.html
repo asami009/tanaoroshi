@@ -65,6 +65,8 @@
   /* 編集モード */
   .erow{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px}
   .erow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .erow .ren{text-align:left;padding:6px 0;text-decoration:underline dotted #b9b1a5;text-underline-offset:4px}
+  .erow .ren::after{content:" ✎";color:var(--sub);font-size:13px}
   .erow select{flex:none;width:104px;padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:#fff}
   .xbtn{flex:none;width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:18px;line-height:1;color:var(--red)}
   .xbtn:active{background:var(--red-bg)}
@@ -181,7 +183,7 @@ function render(){
 
   if (view === 'home') {
     $('title').textContent = editing ? '品目を編集' : '家で棚卸';
-    $('hint').textContent = editing ? '× で消す・右の欄でジャンルを移す・下の欄で足す' : '足りない物をタップ → 赤くなる（もう一回で戻る）';
+    $('hint').textContent = editing ? '名前をタップで変える・× で消す・右の欄でジャンルを移す' : '足りない物をタップ → 赤くなる（もう一回で戻る）';
     $('main').className = '';
     $('main').innerHTML = editing ? editHTML() : homeHTML();
   } else {
@@ -244,7 +246,7 @@ function editHTML(){
       </div>
       <div class="items">${g.items.map(i => `
         <div class="erow">
-          <span class="nm">${esc(i.name)}</span>
+          <button type="button" class="nm ren" data-act="renameI" data-id="${i.id}">${esc(i.name)}</button>
           <select data-act="move" data-id="${i.id}" aria-label="ジャンルを移す">${opts(g.id)}</select>
           <button type="button" class="xbtn" data-act="delI" data-id="${i.id}" aria-label="${esc(i.name)}を消す">×</button>
         </div>`).join('')}
@@ -299,6 +301,11 @@ $('main').addEventListener('click', e => {
     const [g, it] = findItem(id); const idx = g.items.indexOf(it);
     g.items.splice(idx, 1); save(); render();
     toast(`「${it.name}」を消した`, () => { g.items.splice(idx, 0, it); });
+    return;
+  }
+  if (act === 'renameI') {
+    const [, it] = findItem(id);
+    const nm = prompt('品目の名前', it.name); if (nm && nm.trim()) { it.name = nm.trim(); save(); render(); }
     return;
   }
   if (act === 'renameG') {
