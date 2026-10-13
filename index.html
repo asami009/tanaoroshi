@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="棚卸">
+<meta name="theme-color" content="#f6f3ee">
+<title>日用品の棚卸</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#fff; --ink:#22201d; --sub:#7a746c; --line:#e3ddd3;
+    --red:#d63a2f; --red-bg:#fdecea; --green:#2f7d4f; --green-bg:#e8f4ec;
+    --shadow:0 2px 0 #ddd5c8;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    font-size:16px;line-height:1.5}
+  body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  button,.item{touch-action:manipulation}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select{font:inherit;font-size:16px}
+
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    border-bottom:1px solid var(--line)}
+  .hrow{display:flex;align-items:center;gap:10px}
+  .hrow h1{font-size:18px;margin:0;flex:1;font-weight:700}
+  .hint{margin:4px 0 0;font-size:13px;color:var(--sub)}
+  .chip{padding:7px 12px;border-radius:999px;border:1.5px solid var(--ink);font-size:14px;font-weight:700;background:var(--card);box-shadow:var(--shadow)}
+  .chip:active{transform:translateY(2px);box-shadow:none}
+  .chip.on{background:var(--ink);color:#fff}
+
+  main{padding:12px 16px}
+  .genre{margin:0 0 16px}
+  .ghead{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .ghead h2{font-size:14px;color:var(--sub);margin:0;flex:1;font-weight:700;letter-spacing:.05em}
+  .items{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+
+  .item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 14px;min-height:50px;
+    background:var(--card);border:1.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);transition:background .12s,border-color .12s}
+  .item:active{transform:translateY(2px);box-shadow:none}
+  .item .box{flex:none;width:26px;height:26px;border-radius:7px;border:2px solid #b9b1a5;display:grid;place-items:center}
+  .item .nm{flex:1;font-size:16px}
+  .item .tag{font-size:12px;font-weight:700;color:var(--red);display:none;flex:none}
+  .item.need{background:var(--red-bg);border-color:var(--red)}
+  .item.need .box{background:var(--red);border-color:var(--red)}
+  .item.need .box::after{content:"";width:12px;height:3px;background:#fff;border-radius:2px}
+  .item.need .tag{display:inline}
+
+  /* カインズ画面 */
+  .shop .item .box{border-color:var(--green)}
+  .shop .item.gone{opacity:0;transform:translateX(40px);transition:opacity .25s,transform .25s}
+  .empty{text-align:center;padding:48px 16px;color:var(--sub)}
+  .empty b{display:block;font-size:20px;color:var(--ink);margin-bottom:6px}
+  .done-list{margin-top:22px}
+  .done-list summary{font-size:14px;color:var(--sub);padding:8px 0;cursor:pointer}
+  .done-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line);color:var(--sub)}
+  .done-row span{flex:1;text-decoration:line-through}
+  .linkbtn{color:var(--ink);font-size:14px;font-weight:700;text-decoration:underline;padding:6px}
+
+  /* 編集モード */
+  .erow{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px}
+  .erow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .erow select{flex:none;width:104px;padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .xbtn{flex:none;width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:18px;line-height:1;color:var(--red)}
+  .xbtn:active{background:var(--red-bg)}
+  .small{font-size:13px;font-weight:700;padding:6px 10px;border-radius:8px;border:1.5px solid var(--line);background:#fff}
+  .small:active{background:var(--line)}
+  .addrow{display:flex;gap:8px;margin-top:8px}
+  .addrow input{flex:1;min-width:0;padding:10px 12px;border:1.5px dashed #b9b1a5;border-radius:12px;background:transparent}
+  .addrow input:focus{outline:none;border-style:solid;border-color:var(--ink);background:#fff}
+  .addrow button{padding:0 14px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700}
+  .addgenre{margin-top:6px;padding:16px;border:1.5px dashed #b9b1a5;border-radius:14px}
+  .addgenre p{margin:0 0 4px;font-size:14px;font-weight:700}
+
+  .reset{display:block;width:100%;margin:8px 0 0;padding:16px;border-radius:14px;border:2px solid var(--ink);background:var(--card);
+    font-weight:700;font-size:16px;box-shadow:0 3px 0 var(--ink)}
+  .reset:active{transform:translateY(3px);box-shadow:none}
+  .reset small{display:block;font-weight:400;font-size:12px;color:var(--sub)}
+
+  .a2hs{margin:12px 16px 0;padding:12px 14px;border:2px solid var(--red);border-radius:12px;background:var(--red-bg);font-size:14px}
+  .a2hs b{display:block;margin-bottom:4px}
+  .a2hs .kbd{display:inline-block;padding:0 6px;border:1px solid var(--sub);border-radius:5px;background:#fff;font-size:13px}
+  .a2hs button{display:block;margin-top:8px;padding:8px 14px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
+
+  /* 下のタブ */
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:1fr 1fr;gap:8px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line)}
+  nav button{padding:12px 6px;border-radius:14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;
+    box-shadow:0 3px 0 var(--ink);position:relative}
+  nav button:active{transform:translateY(3px);box-shadow:none}
+  nav button.cur{background:var(--ink);color:#fff}
+  nav .badge[hidden]{display:none}
+  nav .badge{display:inline-block;min-width:22px;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--red);color:#fff;font-size:13px;line-height:22px}
+
+  .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:10px 12px 10px 16px;border-radius:12px;display:flex;align-items:center;gap:12px;
+    opacity:0;pointer-events:none;transition:.2s;font-size:14px;max-width:calc(100vw - 24px);z-index:9}
+  #toastMsg{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toast button{flex:none}
+  .toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .toast button{color:#ffd84d;font-weight:700;text-decoration:underline;padding:4px}
+</style>
+</head>
+<body ontouchstart="">
+
+<header>
+  <div class="hrow">
+    <h1 id="title">家で棚卸</h1>
+    <button class="chip" id="editBtn" type="button">品目を編集 ›</button>
+  </div>
+  <p class="hint" id="hint">足りない物をタップ → 赤くなる</p>
+</header>
+
+<div class="a2hs" id="a2hs" hidden>
+  <b>ホーム画面に追加して、アイコンから開いてね</b>
+  Safariのまま使うと、しばらく開かない間に足した品目が消えることがあるよ。<br>下の<span class="kbd">共有</span>ボタン →「ホーム画面に追加」
+  <button type="button" id="a2hsClose">わかった</button>
+</div>
+<main id="main"></main>
+
+<nav>
+  <button type="button" id="tabHome" class="cur">家で棚卸</button>
+  <button type="button" id="tabShop">カインズで<span class="badge" id="badge" hidden>0</span></button>
+</nav>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastUndo">取り消し</button></div>
+
+<script>
+const KEY = 'tanaoroshi.v1';
+const DEFAULT = [
+  ['トイレ', ['トイレットペーパー（3倍巻き）','トイレ用洗剤','トイレ用おそうじシート','タンクの上に置くやつ（ブルーレット系）','ナプキン']],
+  ['お風呂・洗面', ['シャンプー','コンディショナー','ボディソープ','歯ブラシ','歯磨き粉','お風呂の防カビ剤']],
+  ['洗濯', ['洗濯洗剤','柔軟剤']],
+  ['キッチン', ['食器用洗剤','スポンジ','ゴミ袋','キッチンペーパー','キッチンハイター','ラップ・ジップ袋・アルミホイル']],
+  ['掃除', ['消臭剤','お風呂用洗剤','カビ取り剤','メラミンスポンジ']],
+  ['その他', ['ティッシュ']],
+];
+let seq = Date.now();
+const uid = () => (seq++).toString(36);
+
+function fresh(){
+  return { genres: DEFAULT.map(([name, items]) => ({ id: uid(), name, items: items.map(n => ({ id: uid(), name: n, need: false, bought: false })) })) };
+}
+function load(){
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.genres) && s.genres.every(g => g && typeof g.name === 'string' && Array.isArray(g.items) && g.items.every(i => i && typeof i.name === 'string'))) return s; } catch(e){}
+  return fresh();
+}
+let data = load();
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){} }
+
+let view = 'home';   // home | shop
+let editing = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const findItem = id => { for (const g of data.genres) { const it = g.items.find(i => i.id === id); if (it) return [g, it]; } return [null, null]; };
+const needCount = () => data.genres.reduce((n, g) => n + g.items.filter(i => i.need && !i.bought).length, 0);
+
+function render(){
+  $('tabHome').classList.toggle('cur', view === 'home');
+  $('tabShop').classList.toggle('cur', view === 'shop');
+  const n = needCount();
+  $('badge').hidden = n === 0; $('badge').textContent = n;
+  $('editBtn').hidden = view !== 'home';
+  $('editBtn').classList.toggle('on', editing);
+  $('editBtn').textContent = editing ? '編集おわり ✓' : '品目を編集 ›';
+
+  if (view === 'home') {
+    $('title').textContent = editing ? '品目を編集' : '家で棚卸';
+    $('hint').textContent = editing ? '× で消す・右の欄でジャンルを移す・下の欄で足す' : '足りない物をタップ → 赤くなる（もう一回で戻る）';
+    $('main').className = '';
+    $('main').innerHTML = editing ? editHTML() : homeHTML();
+  } else {
+    $('title').textContent = 'カインズで';
+    $('hint').textContent = 'カゴに入れたらタップ → 消える';
+    $('main').className = 'shop';
+    $('main').innerHTML = shopHTML();
+  }
+}
+
+function homeHTML(){
+  let h = data.genres.map(g => `
+    <section class="genre">
+      <div class="ghead"><h2>${esc(g.name)}</h2></div>
+      <div class="items">${g.items.map(i => `
+        <button type="button" class="item${i.need && !i.bought ? ' need' : ''}" data-act="toggle" data-id="${i.id}">
+          <span class="box"></span><span class="nm">${esc(i.name)}</span><span class="tag">足りない</span>
+        </button>`).join('') || '<p class="hint">まだ品目がないよ。「品目を編集」から足してね</p>'}
+      </div>
+    </section>`).join('');
+  h += `<button type="button" class="reset" data-act="reset">棚卸を始める（毎月20日）<small>赤とカインズのリストを全部まっさらにする</small></button>`;
+  return h;
+}
+
+function shopHTML(){
+  const groups = data.genres.map(g => ({ g, list: g.items.filter(i => i.need && !i.bought) })).filter(x => x.list.length);
+  const done = [];
+  data.genres.forEach(g => g.items.forEach(i => { if (i.need && i.bought) done.push(i); }));
+  let h = '';
+  if (!groups.length) {
+    h = done.length
+      ? `<div class="empty"><b>ぜんぶカゴに入った！</b>おつかれさま〜</div>`
+      : `<div class="empty"><b>買う物はないよ</b>「家で棚卸」で足りない物をタップすると、ここに出てくる</div>`;
+  } else {
+    h = groups.map(({ g, list }) => `
+      <section class="genre">
+        <div class="ghead"><h2>${esc(g.name)}</h2></div>
+        <div class="items">${list.map(i => `
+          <button type="button" class="item" data-act="buy" data-id="${i.id}">
+            <span class="box"></span><span class="nm">${esc(i.name)}</span>
+          </button>`).join('')}
+        </div>
+      </section>`).join('');
+  }
+  if (done.length) {
+    h += `<details class="done-list"><summary>カゴに入れた物（${done.length}）</summary>${done.map(i => `
+      <div class="done-row"><span>${esc(i.name)}</span><button type="button" class="linkbtn" data-act="unbuy" data-id="${i.id}">戻す</button></div>`).join('')}</details>`;
+  }
+  return h;
+}
+
+function editHTML(){
+  const opts = cur => data.genres.map(g => `<option value="${g.id}"${g.id === cur ? ' selected' : ''}>${esc(g.name)}</option>`).join('');
+  let h = data.genres.map(g => `
+    <section class="genre">
+      <div class="ghead">
+        <h2>${esc(g.name)}</h2>
+        <button type="button" class="small" data-act="renameG" data-id="${g.id}">名前を変える</button>
+        <button type="button" class="small" data-act="delG" data-id="${g.id}" style="color:var(--red)">ジャンルを消す</button>
+      </div>
+      <div class="items">${g.items.map(i => `
+        <div class="erow">
+          <span class="nm">${esc(i.name)}</span>
+          <select data-act="move" data-id="${i.id}" aria-label="ジャンルを移す">${opts(g.id)}</select>
+          <button type="button" class="xbtn" data-act="delI" data-id="${i.id}" aria-label="${esc(i.name)}を消す">×</button>
+        </div>`).join('')}
+      </div>
+      <form class="addrow" data-act="addI" data-id="${g.id}">
+        <input type="text" placeholder="＋ ${esc(g.name)}に品目を足す" enterkeyhint="done">
+        <button type="submit">足す</button>
+      </form>
+    </section>`).join('');
+  h += `<form class="addgenre" data-act="addG"><p>＋ ジャンルを作る</p>
+    <div class="addrow" style="margin:0"><input type="text" placeholder="例：玄関、子ども部屋" enterkeyhint="done"><button type="submit">作る</button></div></form>`;
+  return h;
+}
+
+/* トースト（取り消しつき） */
+let toastTimer, undoFn = null;
+function toast(msg, undo){
+  $('toastMsg').textContent = msg; undoFn = undo || null;
+  $('toastUndo').hidden = !undo;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').classList.remove('show'); undoFn = null; }, 3000);
+}
+$('toastUndo').onclick = () => { if (undoFn) { undoFn(); save(); render(); } $('toast').classList.remove('show'); undoFn = null; };
+
+/* 操作 */
+$('main').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT' || b.tagName === 'FORM') return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === 'toggle') {
+    const [, it] = findItem(id); it.need = !(it.need && !it.bought); it.bought = false;
+    b.classList.toggle('need', it.need); save();
+    const n = needCount(); $('badge').hidden = n === 0; $('badge').textContent = n;
+    return;
+  }
+  if (act === 'buy') {
+    const [, it] = findItem(id); it.bought = true; save();
+    b.classList.add('gone');
+    setTimeout(render, 230);
+    toast(`「${it.name}」をカゴへ`, () => { it.bought = false; });
+    return;
+  }
+  if (act === 'unbuy') { const [, it] = findItem(id); it.bought = false; save(); render(); return; }
+  if (act === 'reset') {
+    if (!confirm('今月の棚卸を始める？\n赤くした物とカインズのリストが全部まっさらになるよ（品目は消えない）')) return;
+    const snap = JSON.stringify(data);
+    data.genres.forEach(g => g.items.forEach(i => { i.need = false; i.bought = false; }));
+    save(); render(); window.scrollTo(0, 0);
+    toast('まっさらにしたよ', () => { data = JSON.parse(snap); });
+    return;
+  }
+  if (act === 'delI') {
+    const [g, it] = findItem(id); const idx = g.items.indexOf(it);
+    g.items.splice(idx, 1); save(); render();
+    toast(`「${it.name}」を消した`, () => { g.items.splice(idx, 0, it); });
+    return;
+  }
+  if (act === 'renameG') {
+    const g = data.genres.find(x => x.id === id);
+    const nm = prompt('ジャンルの名前', g.name); if (nm && nm.trim()) { g.name = nm.trim(); save(); render(); }
+    return;
+  }
+  if (act === 'delG') {
+    const g = data.genres.find(x => x.id === id);
+    if (g.items.length && !confirm(`「${g.name}」を消す？\n中の品目${g.items.length}個も一緒に消えるよ`)) return;
+    const idx = data.genres.indexOf(g);
+    data.genres.splice(idx, 1); save(); render();
+    toast(`「${g.name}」を消した`, () => { data.genres.splice(idx, 0, g); });
+    return;
+  }
+});
+$('main').addEventListener('change', e => {
+  const s = e.target; if (s.dataset.act !== 'move') return;
+  const [from, it] = findItem(s.dataset.id); const to = data.genres.find(x => x.id === s.value);
+  if (!to || to === from) return;
+  from.items.splice(from.items.indexOf(it), 1); to.items.push(it); save(); render();
+  toast(`「${it.name}」を${to.name}へ移した`);
+});
+$('main').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, inp = f.querySelector('input'), nm = inp.value.trim(); if (!nm) return;
+  if (f.dataset.act === 'addI') {
+    data.genres.find(x => x.id === f.dataset.id).items.push({ id: uid(), name: nm, need: false, bought: false });
+  } else if (f.dataset.act === 'addG') {
+    data.genres.push({ id: uid(), name: nm, items: [] });
+  }
+  save(); render();
+  const again = document.querySelector(`form[data-id="${f.dataset.id}"] input`) || document.querySelector('form[data-act="addG"] input');
+  if (f.dataset.act === 'addI' && again) again.focus();
+});
+
+$('editBtn').onclick = () => { editing = !editing; render(); window.scrollTo(0, 0); };
+$('tabHome').onclick = () => { view = 'home'; render(); window.scrollTo(0, 0); };
+$('tabShop').onclick = () => { view = 'shop'; editing = false; render(); window.scrollTo(0, 0); };
+
+const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+let a2hsSeen = false; try { a2hsSeen = localStorage.getItem('tanaoroshi.a2hs') === '1'; } catch(e){}
+if (!standalone && !a2hsSeen) $('a2hs').hidden = false;
+$('a2hsClose').onclick = () => { $('a2hs').hidden = true; try { localStorage.setItem('tanaoroshi.a2hs', '1'); } catch(e){} };
+
+render();
+</script>
+</body>
+</html>
