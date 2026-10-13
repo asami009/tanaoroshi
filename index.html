@@ -50,6 +50,12 @@
   .item.need .box{background:var(--red);border-color:var(--red)}
   .item.need .box::after{content:"";width:12px;height:3px;background:#fff;border-radius:2px}
   .item.need .tag{display:inline}
+  /* 買い物リストでカゴに入れた物（家の画面では緑で「買ったよ！」） */
+  .item .gtag{font-size:12px;font-weight:700;color:var(--green);display:none;flex:none}
+  .item.got{background:var(--green-bg);border-color:var(--green)}
+  .item.got .box{background:var(--green);border-color:var(--green)}
+  .item.got .box::after{content:"";width:6px;height:11px;margin-top:-3px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
+  .item.got .gtag{display:inline}
 
   /* 買い物リスト画面 */
   .shop .item .box{border-color:var(--green)}
@@ -270,8 +276,8 @@ function homeHTML(){
     <section class="genre">
       <div class="ghead"><h2>${esc(g.name)}</h2></div>
       <div class="items">${g.items.map(i => `
-        <button type="button" class="item${i.need && !i.bought ? ' need' : ''}" data-act="toggle" data-id="${i.id}">
-          <span class="box"></span><span class="nm">${esc(i.name)}</span><span class="tag">足りない</span>
+        <button type="button" class="item${i.need && !i.bought ? ' need' : ''}${i.need && i.bought ? ' got' : ''}" data-act="toggle" data-id="${i.id}">
+          <span class="box"></span><span class="nm">${esc(i.name)}</span><span class="tag">足りない</span><span class="gtag">買ったよ！</span>
         </button>`).join('') || '<p class="hint">まだ品目がないよ。「品目を編集」から足してね</p>'}
       </div>
     </section>`).join('');
@@ -362,7 +368,7 @@ $('main').addEventListener('click', e => {
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'toggle') {
     const [, it] = findItem(id); it.need = !(it.need && !it.bought); it.bought = false;
-    b.classList.toggle('need', it.need); save();
+    b.classList.toggle('need', it.need); b.classList.remove('got'); save();
     const n = needCount(); $('badge').hidden = n === 0; $('badge').textContent = n;
     return;
   }
