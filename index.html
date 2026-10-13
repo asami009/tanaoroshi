@@ -149,7 +149,7 @@
 
   .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
     background:var(--ink);color:#fff;padding:10px 12px 10px 16px;border-radius:12px;display:flex;align-items:center;gap:12px;
-    opacity:0;pointer-events:none;transition:.2s;font-size:14px;max-width:calc(100vw - 24px);z-index:9}
+    opacity:0;pointer-events:none;transition:.2s;font-size:14px;width:max-content;max-width:calc(100vw - 24px);z-index:9}
   #toastMsg{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .toast button{flex:none}
   .toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
@@ -367,8 +367,14 @@ $('main').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT' || b.tagName === 'FORM') return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'toggle') {
-    const [, it] = findItem(id); it.need = !(it.need && !it.bought); it.bought = false;
-    b.classList.toggle('need', it.need); b.classList.remove('got'); save();
+    const [, it] = findItem(id);
+    if (it.need && it.bought) { // 「買ったよ！」をタップ → 白に戻す（うっかり用に取り消しつき）
+      it.need = false; it.bought = false; save(); render();
+      toast(`「${it.name}」を白に戻した`, () => { it.need = true; it.bought = true; });
+      return;
+    }
+    it.need = !it.need; it.bought = false;
+    b.classList.toggle('need', it.need); save();
     const n = needCount(); $('badge').hidden = n === 0; $('badge').textContent = n;
     return;
   }
