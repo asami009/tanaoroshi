@@ -104,6 +104,32 @@
   .a2hs b{display:block;margin-bottom:4px}
   .a2hs .kbd{display:inline-block;padding:0 6px;border:1px solid var(--sub);border-radius:5px;background:#fff;font-size:13px}
   .a2hs button{display:block;margin-top:8px;padding:8px 14px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
+  .a2hs.today{border-color:var(--green);background:var(--green-bg)}
+  .a2hs.today b{font-size:17px}
+
+  /* 棚卸の日の設定（編集画面のいちばん下） */
+  .setbox{margin:24px 0 0;padding:14px 16px;background:var(--card);border:1.5px solid var(--line);border-radius:14px}
+  .setbox h2{font-size:14px;color:var(--sub);margin:0 0 8px;font-weight:700;letter-spacing:.05em}
+  .dayrow{display:flex;align-items:center;gap:8px;font-weight:700}
+  .dayrow select{width:84px;padding:8px 6px;border:1.5px solid var(--ink);border-radius:10px;background:#fff;font-weight:700}
+  .setbox p{margin:8px 0 0;font-size:13px;color:var(--sub)}
+
+  /* 使い方（吹き出し） */
+  .tour{position:fixed;inset:0;z-index:30}
+  .tour-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 200vmax rgba(20,18,15,.62);pointer-events:none;
+    transition:left .25s,top .25s,width .25s,height .25s}
+  .tour-box{position:fixed;background:var(--card);color:var(--ink);border-radius:14px;padding:14px 16px 12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:15px}
+  .tour-box::before{content:"";position:absolute;left:var(--ax,50%);width:14px;height:14px;background:var(--card);transform:translateX(-50%) rotate(45deg)}
+  .tour-box.up::before{top:-7px}
+  .tour-box.down::before{bottom:-7px}
+  .tour-box.mid::before{display:none}
+  .tour-box p{margin:0}
+  .tour-foot{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .tour-foot span{flex:1;font-size:13px;color:var(--sub)}
+  .tour-foot .skip{padding:8px 10px;font-size:14px;color:var(--sub);text-decoration:underline}
+  .tour-foot .next{padding:9px 18px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700;font-size:15px;box-shadow:0 3px 0 #000}
+  .tour-foot .next:active{transform:translateY(3px);box-shadow:none}
 
   /* 下のタブ */
   nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:1fr 1fr;gap:8px;
@@ -134,6 +160,11 @@
   <p class="hint" id="hint">足りない物をタップ → 赤くなる</p>
 </header>
 
+<div class="a2hs today" id="dayBand" hidden>
+  <b>今日は棚卸の日！</b>
+  いちばん下の「棚卸を始める」でまっさらにしてから、足りない物をタップしてね
+  <button type="button" id="dayBandClose">わかった</button>
+</div>
 <div class="a2hs" id="a2hs" hidden>
   <b>ホーム画面に追加して、アイコンから開いてね</b>
   Safariのまま使うと、しばらく開かない間に足した品目が消えることがあるよ。<br>下の<span class="kbd">共有</span>ボタン →「ホーム画面に追加」
@@ -148,8 +179,17 @@
 
 <div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastUndo">取り消し</button></div>
 
+<div class="tour" id="tour" hidden>
+  <div class="tour-spot" id="tourSpot"></div>
+  <div class="tour-box" id="tourBox" role="dialog" aria-live="polite">
+    <p id="tourText"></p>
+    <div class="tour-foot"><span id="tourNum"></span><button type="button" class="skip" id="tourSkip">とばす</button><button type="button" class="next" id="tourNext">次へ</button></div>
+  </div>
+</div>
+
 <script>
 const KEY = 'tanaoroshi.v1';
+let tour = null; // 使い方を見せている間だけ { i, real, el }。その間は保存しない
 const DEFAULT = [
   ['トイレ', ['トイレットペーパー','トイレ用洗剤','トイレ用おそうじシート','ブルーレット','ナプキン']],
   ['お風呂・洗面', ['シャンプー','コンディショナー','ボディソープ','歯ブラシ','歯磨き粉','お風呂の防カビ剤']],
@@ -167,7 +207,7 @@ let seq = Date.now();
 const uid = () => (seq++).toString(36);
 
 function fresh(){
-  return { priceV1: true, genres: DEFAULT.map(([name, items]) => ({ id: uid(), name, items: items.map(n => ({ id: uid(), name: n, need: false, bought: false, price: PRICE[n] ?? null })) })) };
+  return { priceV1: true, settings: { day: 20 }, genres: DEFAULT.map(([name, items]) => ({ id: uid(), name, items: items.map(n => ({ id: uid(), name: n, need: false, bought: false, price: PRICE[n] ?? null })) })) };
 }
 function load(){
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.genres) && s.genres.every(g => g && typeof g.name === 'string' && Array.isArray(g.items) && g.items.every(i => i && typeof i.name === 'string'))) return s; } catch(e){}
@@ -186,8 +226,11 @@ if (!data.priceV1) {
   data.genres.forEach(g => g.items.forEach(i => { if (i.price == null && PRICE[i.name] != null) i.price = PRICE[i.name]; }));
   data.priceV1 = true;
 }
+/* 棚卸の日（2026-10-14追加）。前からのデータには無いので毎月20日で入れる */
+if (!data.settings || typeof data.settings !== 'object') data.settings = {};
+if (!(Number.isInteger(data.settings.day) && data.settings.day >= 1 && data.settings.day <= 31)) data.settings.day = 20;
 save();
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){} }
+function save(){ if (tour) return; try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){} }
 
 let view = 'home';   // home | shop
 let editing = false;
@@ -198,6 +241,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const findItem = id => { for (const g of data.genres) { const it = g.items.find(i => i.id === id); if (it) return [g, it]; } return [null, null]; };
 const yen = n => '約' + (Math.round(n / 10) * 10).toLocaleString('ja-JP') + '円';
 const needCount = () => data.genres.reduce((n, g) => n + g.items.filter(i => i.need && !i.bought).length, 0);
+const invDay = () => data.settings.day;
 
 function render(){
   $('tabHome').classList.toggle('cur', view === 'home');
@@ -231,7 +275,7 @@ function homeHTML(){
         </button>`).join('') || '<p class="hint">まだ品目がないよ。「品目を編集」から足してね</p>'}
       </div>
     </section>`).join('');
-  h += `<button type="button" class="reset" data-act="reset">棚卸を始める（毎月20日）<small>赤と買い物リストを全部まっさらにする</small></button>`;
+  h += `<button type="button" class="reset" data-act="reset">棚卸を始める（毎月${invDay()}日）<small>赤と買い物リストを全部まっさらにする</small></button>`;
   return h;
 }
 
@@ -293,6 +337,12 @@ function editHTML(){
     </section>`).join('');
   h += `<form class="addgenre" data-act="addG"><p>＋ ジャンルを作る</p>
     <div class="addrow" style="margin:0"><input type="text" placeholder="例：玄関、子ども部屋" enterkeyhint="done"><button type="submit">作る</button></div></form>`;
+  const d = invDay();
+  const days = Array.from({ length: 31 }, (_, k) => `<option value="${k + 1}"${k + 1 === d ? ' selected' : ''}>${k + 1}</option>`).join('');
+  h += `<section class="setbox"><h2>棚卸の日</h2>
+    <label class="dayrow">毎月<select data-act="day" aria-label="棚卸の日">${days}</select>日</label>
+    <p>${d >= 29 ? `${d}日がない月は、月末が棚卸の日になるよ` : 'その日に開くと「今日は棚卸の日！」が出るよ'}</p></section>
+    <button type="button" class="reset" data-act="tour">使い方を見る<small>最初に出た説明をもう一回</small></button>`;
   return h;
 }
 
@@ -324,10 +374,12 @@ $('main').addEventListener('click', e => {
     return;
   }
   if (act === 'unbuy') { const [, it] = findItem(id); it.bought = false; save(); render(); return; }
+  if (act === 'tour') { startTour(); return; }
   if (act === 'reset') {
     if (!confirm('今月の棚卸を始める？\n赤くした物と買い物リストが全部まっさらになるよ（品目は消えない）')) return;
     const snap = JSON.stringify(data);
     data.genres.forEach(g => g.items.forEach(i => { i.need = false; i.bought = false; }));
+    if (!$('dayBand').hidden) closeBand();
     save(); render(); window.scrollTo(0, 0);
     toast('まっさらにしたよ', () => { data = JSON.parse(snap); });
     return;
@@ -371,7 +423,13 @@ $('main').addEventListener('toggle', e => {
   if (e.target.classList && e.target.classList.contains('done-list')) doneOpen = e.target.open;
 }, true);
 $('main').addEventListener('change', e => {
-  const s = e.target; if (s.dataset.act !== 'move') return;
+  const s = e.target;
+  if (s.dataset.act === 'day') {
+    data.settings.day = parseInt(s.value, 10); save(); render(); checkBand();
+    toast(`棚卸の日を毎月${invDay()}日にしたよ`);
+    return;
+  }
+  if (s.dataset.act !== 'move') return;
   const [from, it] = findItem(s.dataset.id); const to = data.genres.find(x => x.id === s.value);
   if (!to || to === from) return;
   from.items.splice(from.items.indexOf(it), 1); to.items.push(it); save(); render();
@@ -399,7 +457,91 @@ let a2hsSeen = false; try { a2hsSeen = localStorage.getItem('tanaoroshi.a2hs') =
 if (!standalone && !a2hsSeen) $('a2hs').hidden = false;
 $('a2hsClose').onclick = () => { $('a2hs').hidden = true; try { localStorage.setItem('tanaoroshi.a2hs', '1'); } catch(e){} };
 
+/* 今日は棚卸の日！（29〜31日にして、その日がない月は月末）。閉じたらその日のうちは出さない。
+   ホーム画面アプリは裏から戻ると読み込み直さないので、開くたびに今日の日付で見直す */
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function closeBand(){ $('dayBand').hidden = true; try { localStorage.setItem('tanaoroshi.dayband', todayKey()); } catch(e){} }
+function checkBand(){
+  const d = new Date(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  let seen = ''; try { seen = localStorage.getItem('tanaoroshi.dayband') || ''; } catch(e){}
+  $('dayBand').hidden = !(d.getDate() === Math.min(invDay(), last) && seen !== todayKey());
+}
+$('dayBandClose').onclick = closeBand;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBand(); });
+addEventListener('pageshow', checkBand);
+checkBand();
+
+/* 使い方（吹き出し）。見本のデータで見せて、終わったら本物に戻す */
+const TOUR = [
+  { view: 'home', sel: '#main .item', text: '家にある物を見て、<b>足りない物をタップ</b> → 赤くなる。もう一回タップで戻るよ' },
+  { view: 'home', sel: '#tabShop', text: '赤くした物は、下の<b>「買い物リスト」</b>に集まるよ' },
+  { view: 'shop', sel: '#main .srow .item', below: true, text: 'お店でカゴに入れたら<b>品目をタップ</b> → リストから消える。まちがえても「取り消し」で戻せるよ' },
+  { view: 'shop', sel: '#main .spr', below: true, text: '右の<b>値段をタップ</b>で直せる。上の「残り／合計」も一緒に変わるよ' },
+  { view: 'home', sel: '#editBtn', text: '品目の名前・値段を変える、足す、消すはここ。<b>棚卸の日</b>と<b>使い方</b>も、この中のいちばん下にあるよ' },
+  { view: 'home', sel: '#main .reset', text: '棚卸の日になったらこれ。<b>赤と買い物リストがまっさら</b>になるから、また足りない物をタップしてね' },
+];
+function startTour(){
+  if (tour) return;
+  try { localStorage.setItem('tanaoroshi.tour', '1'); } catch(e){}
+  const demo = JSON.parse(JSON.stringify(data));
+  const first = demo.genres.flatMap(g => g.items)[0];
+  if (first) { first.need = true; first.bought = false; } // 買い物リストが空でも指す先があるように
+  $('toast').classList.remove('show'); undoFn = null;
+  tour = { i: 0, real: data, el: null, back: { view, editing } };
+  data = demo; editing = false;
+  $('tour').hidden = false;
+  showStep();
+}
+function endTour(){
+  const back = tour.back;
+  data = tour.real; tour = null;
+  $('tour').hidden = true;
+  view = back.view; editing = back.editing; render(); // 始めた画面に戻る（編集画面の「使い方を見る」なら編集画面のいちばん下）
+  if (editing) window.scrollTo(0, document.body.scrollHeight); else window.scrollTo(0, 0);
+}
+function showStep(){
+  const st = TOUR[tour.i];
+  if (view !== st.view) { view = st.view; window.scrollTo(0, 0); }
+  editing = false; render();
+  const el = document.querySelector(st.sel);
+  if (el && $('main').contains(el)) el.scrollIntoView({ block: 'center' });
+  tour.el = el;
+  $('tourText').innerHTML = st.text;
+  $('tourNum').textContent = `${tour.i + 1} / ${TOUR.length}`;
+  $('tourNext').textContent = tour.i === TOUR.length - 1 ? 'おわり' : '次へ';
+  placeTour();
+}
+function placeTour(){
+  if (!tour) return;
+  const spot = $('tourSpot'), box = $('tourBox'), vw = innerWidth, vh = innerHeight, pad = 6, gap = 14;
+  const bw = Math.min(340, vw - 32);
+  box.style.width = bw + 'px';
+  const r = tour.el && tour.el.getBoundingClientRect();
+  if (!r || !r.width) { // 指す先がないときは真ん中に出す
+    Object.assign(spot.style, { left: vw / 2 + 'px', top: vh / 2 + 'px', width: '0px', height: '0px' });
+    box.className = 'tour-box mid';
+    Object.assign(box.style, { left: (vw - bw) / 2 + 'px', top: Math.max(16, (vh - box.offsetHeight) / 2) + 'px' });
+    return;
+  }
+  Object.assign(spot.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+  const left = Math.max(16, Math.min(r.left + r.width / 2 - bw / 2, vw - 16 - bw));
+  const bh = box.offsetHeight;
+  let below = TOUR[tour.i].below || r.top + r.height / 2 < vh / 2; // お店の2枚は上の「残り／合計」を隠さないよう下に出す
+  if (below && r.bottom + pad + gap + bh > vh - 8) below = false; // 下にはみ出すなら上へ
+  box.className = 'tour-box ' + (below ? 'up' : 'down');
+  box.style.left = left + 'px';
+  box.style.top = (below ? r.bottom + pad + gap : r.top - pad - gap - bh) + 'px';
+  box.style.setProperty('--ax', Math.max(20, Math.min(r.left + r.width / 2 - left, bw - 20)) + 'px');
+}
+$('tourNext').onclick = () => { if (tour.i < TOUR.length - 1) { tour.i++; showStep(); } else endTour(); };
+$('tourSkip').onclick = endTour;
+$('tour').addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+addEventListener('resize', placeTour);
+addEventListener('scroll', placeTour, { passive: true });
+
 render();
+let tourSeen = false; try { tourSeen = localStorage.getItem('tanaoroshi.tour') === '1'; } catch(e){}
+if (!tourSeen) setTimeout(() => { if (!$('toast').classList.contains('show')) startTour(); }, 400);
 </script>
 </body>
 </html>
